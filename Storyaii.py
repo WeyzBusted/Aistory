@@ -1,22 +1,72 @@
+python
 import random
-import telebot
+import telegram
+from telegram.ext import CommandHandler, MessageHandler, Filters, Updater
 
-TOKEN = '6064933243:AAEgWPjI8DAhffvpKvIXVf8BDBzknzZ0sqI' # вставить ваш токен
+TOKEN = '6266894289:AAFqWeUo2gZTstXXm193AWGMF-yup-EuidM'
+bot = telegram.Bot(token=TOKEN)
+updater = Updater(token=TOKEN, use_context=True)
+dispatcher = updater.dispatcher
 
-bot = telebot.TeleBot(TOKEN)
+power_dict = {}  # Словарь для хранения власти пользователей
 
-@bot.message_handler(commands=['love'])
-def love_compliment(message):
-    name = message.text.split()[1] # получаем имя из команды
-    compliments = [
-        f"Доброе утро, Анастасия! Ты такая восхитительная и красивая, что я не могу налюбоваться на тебя!",
-        f"Анастасия, знаешь, что ты такая прекрасная женщина? Я просто восхищаюсь тобой!",
-        f"Как же приятно видеть Анастасию с улыбкой на лице! Ты делаешь мир лучше своей красотой и добротой!",
-        f"Анастасия, у меня нет слов, чтобы выразить, насколько ты красива и прекрасна, но знай, что ты такая!",
-        f"Я всегда восхищался женщинами, которые умеют соблазнять только своим присутствием. Анастасия, ты точно такая!",
-        f"Анастасия, Степан вас очень любит!!!",
-    ]
-    compliment = random.choice(compliments) # выбираем случайный комплимент
-    bot.reply_to(message, compliment) # отправляем комплимент в ответ на команду
+def start(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Отлично, теперь у меня больше власти.")
 
-bot.polling()
+def vlast(update, context):
+    user_id = update.effective_user.id
+    power = random.randint(1, 10)
+    if user_id in power_dict:
+        power_dict[user_id] += power
+    else:
+        power_dict[user_id] = power
+    context.bot.send_message(chat_id=update.effective_chat.id, text=f"Вы получили {power} власти.")
+
+def den(update, context):
+    sorted_power = sorted(power_dict.items(), key=lambda x: x[1], reverse=True)
+    top_players = []
+    for i, (user_id, power) in enumerate(sorted_power):
+        user = context.bot.get_chat_member(chat_id=update.effective_chat.id, user_id=user_id).user
+        top_players.append(f"{i+1}. {user.username} - {power}")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Топ игроков власти за день:\n" + "\n".join(top_players))
+
+def top(update, context):
+    sorted_power = sorted(power_dict.items(), key=lambda x: x[1], reverse=True)
+    top_players = []
+    for i, (user_id, power) in enumerate(sorted_power):
+        user = context.bot.get_chat_member(chat_id=update.effective_chat.id, user_id=user_id).user
+        top_players.append(f"{i+1}. {user.username} - {power}")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Топ игроков за все время:\n" + "\n".join(top_players))
+
+def duel(update, context):
+    user_id = update.effective_user.id
+    mentioned_user_id = update.message.reply_to_message.from_user.id
+    if user_id not in power_dict or mentioned_user_id not in power_dict:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Участвующие пользователи должны иметь власть.")
+        return
+    user_power = power_dict[user_id]
+    mentioned_user_power = power_dict[mentioned_user_id]
+    if user_power > mentioned_user_power:
+        power_dict[user_id] += random.randint(1, 10)
+        power_dict[mentioned_user_id] -= random.randint(1, 10)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Победа! Вы получили власть.")
+    elif user_power < mentioned_user_power:
+        power_dict[user_id] -= random.randint(1, 10)
+        power_dict[mentioned_user_id] += random.randint(1, 10)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Поражение! Вы потеряли власть.")
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Ничья! Власть не изменилась.")
+
+start_handler = CommandHandler('start', start)
+vlast_handler = CommandHandler('vlast', vlast)
+den_handler = CommandHandler('den', den)
+top_handler = CommandHandler('top', top)
+duel_handler = CommandHandler('duel', duel)
+
+dispatcher.add_handler(start_handler)
+dispatcher.add_handler(vlast_handler)
+dispatcher.add_handler(den_handler)
+dispatcher.add_handler(top_handler)
+dispatcher.add_handler(duel_handler)
+
+updater.start_polling()
